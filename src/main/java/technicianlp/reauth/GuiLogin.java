@@ -2,151 +2,128 @@ package technicianlp.reauth;
 
 import com.mojang.authlib.exceptions.AuthenticationException;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiButton;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
-import net.minecraftforge.fml.client.config.GuiCheckBox;
-import org.lwjgl.input.Keyboard;
+import net.minecraft.client.gui.widget.button.Button;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import org.lwjgl.glfw.GLFW;
 
 import java.awt.Color;
-import java.io.IOException;
 
-final class GuiLogin extends GuiScreen {
+final class GuiLogin extends Screen {
 
-    private GuiTextField username;
+    private TextFieldWidget username;
+    //private TextFieldWidget pw;
     private GuiPasswordField pw;
-    private GuiButton login;
-    private GuiButton cancel;
-    private GuiButton offline;
-    private GuiCheckBox save;
-    private GuiButton config;
+    private Button login;
+    private Button cancel;
+    private Button offline;
+    private Button config;
 
-    private GuiScreen prev;
+    private Screen prev;
 
     private int basey;
 
     private String message = "";
 
-    GuiLogin(GuiScreen prev) {
-        this.mc = Minecraft.getMinecraft();
-        this.fontRenderer = mc.fontRenderer;
-        this.prev = prev;
+    GuiLogin(Screen prev) {
+		super(new net.minecraft.util.text.TranslationTextComponent("demo.help.title", new Object[0]));
+		Minecraft.getInstance().keyboardListener.enableRepeatEvents(true);
+		this.prev = prev;
     }
 
     @Override
-    protected void actionPerformed(GuiButton b) {
-        switch (b.id) {
-            case 0:
-                if (login())
-                    this.mc.displayGuiScreen(prev);
-                break;
-            case 3:
-                if (playOffline())
-                    this.mc.displayGuiScreen(prev);
-                break;
-            case 1:
-                this.mc.displayGuiScreen(prev);
-                break;
-            case 4:
-                this.mc.displayGuiScreen(new ConfigGUI(this));
-                break;
-        }
+    public void render(int x, int y, float p) {
+        renderDirtBackground(0);
 
-    }
-
-    @Override
-    public void drawScreen(int p_73863_1_, int p_73863_2_, float p_73863_3_) {
-        this.drawDefaultBackground();
-
-        this.drawCenteredString(this.fontRenderer, "Username/E-Mail:", this.width / 2, this.basey,
+        drawCenteredString(font, "Username/E-Mail:", width / 2, basey,
                 Color.WHITE.getRGB());
-        this.drawCenteredString(this.fontRenderer, "Password:", this.width / 2, this.basey + 45,
+        drawCenteredString(font, "Password:", width / 2, basey + 45,
                 Color.WHITE.getRGB());
-        if (!(this.message == null || this.message.isEmpty())) {
-            this.drawCenteredString(this.fontRenderer, this.message, this.width / 2, this.basey - 15, 0xFFFFFF);
+        if (!(message == null || message.isEmpty())) {
+            drawCenteredString(font, message, width / 2, basey - 15, 0xFFFFFF);
         }
-        this.username.drawTextBox();
-        this.pw.drawTextBox();
+        username.render(x, y, p);
+        pw.render(x, y, p);
 
-        super.drawScreen(p_73863_1_, p_73863_2_, p_73863_3_);
+        super.render(x, y, p);
     }
 
     @Override
-    public void updateScreen() {
-        super.updateScreen();
-        this.username.drawTextBox();
-        this.pw.drawTextBox();
+    public void init() {
+        super.init();
+
+        basey = height / 2 - 110 / 2;
+
+        username = new TextFieldWidget(font, width / 2 - 155, basey + 15, 2 * 155, 20, Secure.username);
+        username.setMaxStringLength(512);
+        username.setFocused2(true);
+        username.setEnabled(true);
+        username.setVisible(true);
+        username.setCanLoseFocus(true);
+
+        pw = new GuiPasswordField(font, width / 2 - 155, basey + 60, 2 * 155, 20, "");
+        pw.setEnabled(true);
+        pw.setVisible(true);
+        pw.setCanLoseFocus(true);
+	
+        this.children.add(username);
+        this.children.add(pw);
+	this.setFocusedDefault(username);
+
+        login = new Button(width / 2 - 155, basey + 105, 100, 20, "Login", x -> {if(login()) minecraft.displayGuiScreen(prev);});
+        offline = new Button(width / 2 - 50, basey + 105, 100, 20, "Play Offline", x -> {if(playOffline()) minecraft.displayGuiScreen(prev);});
+        cancel = new Button(width / 2 + 55, basey + 105, 100, 20, "Cancel", x -> minecraft.displayGuiScreen(prev));
+        addButton(login);
+        addButton(offline);
+        addButton(cancel);
     }
 
-    @Override
-    public void initGui() {
-        super.initGui();
-        Keyboard.enableRepeatEvents(true);
-
-        this.basey = this.height / 2 - 110 / 2;
-
-        this.username = new GuiTextField(0, this.fontRenderer, this.width / 2 - 155, this.basey + 15, 2 * 155, 20);
-        this.username.setMaxStringLength(512);
-        this.username.setText(Secure.username);
-        this.username.setFocused(true);
-
-        this.pw = new GuiPasswordField(this.fontRenderer, this.width / 2 - 155, this.basey + 60, 2 * 155, 20);
-        this.pw.setPassword(Secure.password);
-
-        this.save = new GuiCheckBox(2, this.width / 2 - 155, this.basey + 85, "Save Password to Config (WARNING: SECURITY RISK!)", false);
-        this.buttonList.add(this.save);
-
-        if (!Main.OfflineModeEnabled) {
-            this.login = new GuiButton(0, this.width / 2 - 155, this.basey + 105, 153, 20, "Login");
-            this.cancel = new GuiButton(1, this.width / 2 + 2, this.basey + 105, 155, 20, "Cancel");
-            this.buttonList.add(this.login);
-            this.buttonList.add(this.cancel);
-        } else {
-            this.login = new GuiButton(0, this.width / 2 - 155, this.basey + 105, 100, 20, "Login");
-            this.offline = new GuiButton(3, this.width / 2 - 50, this.basey + 105, 100, 20, "Play Offline");
-            this.cancel = new GuiButton(1, this.width / 2 + 55, this.basey + 105, 100, 20, "Cancel");
-            this.buttonList.add(this.login);
-            this.buttonList.add(this.cancel);
-            this.buttonList.add(this.offline);
-        }
-
-        this.config = new GuiButton(4, this.width - 80, this.height - 25, 75, 20, "Config");
-        this.buttonList.add(config);
-
-        if (!VersionChecker.isLatestVersion()) {
-            this.message = VersionChecker.getUpdateMessage();
-        }
-        if (!VersionChecker.isVersionAllowed()) {
-            this.message = VersionChecker.getUpdateMessage();
-            this.login.enabled = false;
-        }
+    public void tick() {
+        this.username.tick();
+        this.pw.tick();
     }
 
-    @Override
-    protected void keyTyped(char c, int k) throws IOException {
-        super.keyTyped(c, k);
-        this.username.textboxKeyTyped(c, k);
-        this.pw.textboxKeyTyped(c, k);
-        if (k == Keyboard.KEY_TAB) {
-            this.username.setFocused(!this.username.isFocused());
-            this.pw.setFocused(!this.pw.isFocused());
-        } else if (k == Keyboard.KEY_RETURN) {
+    /*@Override
+    public boolean charTyped(char c, int mod) {
+        if (c == '\t') {
+            this.username.setFocused2(!this.username.isFocused());
+            this.pw.setFocused2(!this.pw.isFocused());
+            return true;
+        } else if (c == '\n' || c == '\r') {
             if (this.username.isFocused()) {
-                this.username.setFocused(false);
-                this.pw.setFocused(true);
+                this.username.setFocused2(false);
+                this.pw.setFocused2(true);
             } else if (this.pw.isFocused()) {
-                this.actionPerformed(this.login);
+                this.login();
             }
+            return true;
         }
-    }
+        boolean k = super.charTyped(c, mod);
+        this.username.charTyped(c, mod);
+        this.pw.charTyped(c, mod);
+        return k;
+    }*/
 
-    @Override
-    protected void mouseClicked(int x, int y, int b) throws IOException {
-        super.mouseClicked(x, y, b);
-        this.username.mouseClicked(x, y, b);
-        this.pw.mouseClicked(x, y, b);
-    }
-
+    /*@Override
+    public boolean keyPressed(int key, int scan, int mod) {
+        if (key == GLFW.GLFW_KEY_TAB) {
+            this.username.setFocused2(!this.username.isFocused());
+            this.pw.setFocused2(!this.pw.isFocused());
+            return true;
+        } else if (key == GLFW.GLFW_KEY_ENTER) {
+            if (this.username.isFocused()) {
+                this.username.setFocused2(false);
+                this.pw.setFocused2(true);
+            } else if (this.pw.isFocused()) {
+                this.login();
+            }
+            return true;
+        }
+        boolean k = super.keyPressed(key, scan, mod);
+        this.username.keyPressed(key, scan, mod);
+        this.pw.keyPressed(key, scan, mod);
+        return k;
+    }*/
     /**
      * used as an interface between this and the secure class
      * <p>
@@ -154,15 +131,15 @@ final class GuiLogin extends GuiScreen {
      */
     private boolean login() {
         try {
-            Secure.login(this.username.getText(), this.pw.getPW(), this.save.isChecked());
-            this.message = (char) 167 + "aLogin successful!";
+            Secure.login(username.getText(), pw.getPW(), false);
+            message = (char) 167 + "aLogin successful!";
             return true;
         } catch (AuthenticationException e) {
-            this.message = (char) 167 + "4Login failed: " + e.getMessage();
+            message = (char) 167 + "4Login failed: " + e.getMessage();
             Main.log.error("Login failed:", e);
             return false;
         } catch (Exception e) {
-            this.message = (char) 167 + "4Error: Something went wrong!";
+            message = (char) 167 + "4Error: Something went wrong!";
             Main.log.error("Error:", e);
             return false;
         }
@@ -174,27 +151,28 @@ final class GuiLogin extends GuiScreen {
     private boolean playOffline() {
         String username = this.username.getText();
         if (!(username.length() >= 2 && username.length() <= 16)) {
-            this.message = (char) 167 + "4Error: Username needs a length between 2 and 16";
+            message = (char) 167 + "4Error: Username needs a length between 2 and 16";
             return false;
         }
         if (!username.matches("[A-Za-z0-9_]{2,16}")) {
-            this.message = (char) 167 + "4Error: Username has to be alphanumerical";
+            message = (char) 167 + "4Error: Username has to be alphanumerical";
             return false;
         }
         try {
             Secure.offlineMode(username);
             return true;
         } catch (Exception e) {
-            this.message = (char) 167 + "4Error: Something went wrong!";
+            message = (char) 167 + "4Error: Something went wrong!";
             Main.log.error("Error:", e);
             return false;
         }
     }
 
     @Override
-    public void onGuiClosed() {
-        super.onGuiClosed();
-        this.pw.setPassword(new char[0]);
-        Keyboard.enableRepeatEvents(false);
+    public void onClose() {
+        super.onClose();
+        pw.setText("");
+        Minecraft.getInstance().keyboardListener.enableRepeatEvents(false);
+		Minecraft.getInstance().displayGuiScreen(prev);
     }
 }

@@ -1,0 +1,23 @@
+modLoader="javafml" #mandatory
+loaderVersion="[28,)" #mandatory (28 is current forge version)
+[[mods]] #mandatory
+modId="reauth" #mandatory
+version="${file.jarVersion}" #mandatory
+displayName="ReAuth" #mandatory
+displayURL="http://minecraft.curseforge.com/projects/reauth/" #optional
+authors="TechnicianLP, ported by Alwinfy" #optional
+description='''
+A mod to renew your Session
+'''
+[[dependencies.reauth]] #optional
+    modId="forge" #mandatory
+    mandatory=true #mandatory
+    versionRange="[28,)" #mandatory
+    ordering="NONE"
+    side="CLIENT"
+[[dependencies.reauth]]
+    modId="minecraft"
+    mandatory=true
+    versionRange="[1.14.4]"
+    ordering="NONE"
+    side="BOTH"

@@ -2,44 +2,32 @@ package technicianlp.reauth;
 
 import net.minecraft.client.Minecraft;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.common.config.Property;
+import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.client.event.ConfigChangedEvent.OnConfigChangedEvent;
 import net.minecraftforge.fml.common.Mod;
-import net.minecraftforge.fml.common.ModMetadata;
-import net.minecraftforge.fml.common.event.FMLFingerprintViolationEvent;
-import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
-import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLFingerprintViolationEvent;
+import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
+import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 
-@Mod(modid = "reauth", name = "ReAuth", version = "3.6.0", guiFactory = "technicianlp.reauth.GuiFactory", canBeDeactivated = true, clientSideOnly = true, acceptedMinecraftVersions = "[1.12]", certificateFingerprint = "daba0ec4df71b6da841768c49fb873def208a1e3")
+@Mod("reauth")
 public final class Main {
 
     static final Logger log = LogManager.getLogger("ReAuth");
-    static Configuration config;
 
     static boolean OfflineModeEnabled;
 
-    @Mod.Instance("reauth")
-    static Main main;
+    public Main() {
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::preInit);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::securityError);
+    }
 
-    @Mod.Metadata
-    static ModMetadata meta;
-
-    @Mod.EventHandler
-    public void preInit(FMLPreInitializationEvent evt) {
+    public void preInit(FMLClientSetupEvent evt) {
         MinecraftForge.EVENT_BUS.register(this);
 
-        //Moved ReAuth config out of /config
-        File config = new File(Minecraft.getMinecraft().mcDataDir, ".ReAuth.cfg");
-        //new one missing; old one there -> move the file
-        if (evt.getSuggestedConfigurationFile().exists() && !config.exists())
-            evt.getSuggestedConfigurationFile().renameTo(config);
-        //initialize config
-        Main.config = new Configuration(config);
         Main.loadConfig();
 
         Secure.init();
@@ -56,25 +44,17 @@ public final class Main {
      * (re-)loads config
      */
     private static void loadConfig() {
-        Property username = config.get(Configuration.CATEGORY_GENERAL, "username", "", "Your Username");
-        Secure.username = username.getString();
+        Secure.username = "";
 
-        Property password = config.get(Configuration.CATEGORY_GENERAL, "password", "", "Your Password in plaintext if chosen to save to disk");
-        Secure.password = password.getString().toCharArray();
+        Secure.password = new char[0];
 
-        Property offline = config.get(Configuration.CATEGORY_GENERAL, "offlineModeEnabled", false, "Enables play-offline button");
-        Main.OfflineModeEnabled = offline.getBoolean();
+        Main.OfflineModeEnabled = true;
 
-        Property validator = config.get(Configuration.CATEGORY_GENERAL, "validatorEnabled", true, "Disables the Session Validator");
-        GuiHandler.enabled = validator.getBoolean();
+        GuiHandler.enabled = false;
 
-        Property bold = config.get(Configuration.CATEGORY_GENERAL, "validatorBold", true, "If the Session-Validator look weird disable this");
-        GuiHandler.bold = bold.getBoolean();
-
-        Main.config.save();
+        GuiHandler.bold = false;
     }
 
-    @Mod.EventHandler
     public void securityError(FMLFingerprintViolationEvent event) {
         log.fatal("+-----------------------------------------------------------------------------------+");// @Replace()
         log.fatal("|The Version of ReAuth is not signed! It was modified! Ignoring because of Dev-Mode!|");// @Replace()

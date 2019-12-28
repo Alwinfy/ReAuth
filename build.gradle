@@ -1,129 +1,182 @@
 buildscript {
     repositories {
-        jcenter()
-        maven { url = "http://files.minecraftforge.net/maven" }
+        mavenCentral()
+        maven {
+            name = "forge"
+            url = "https://files.minecraftforge.net/maven"
+        }
     }
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
+        classpath group: 'net.minecraftforge.gradle', name: 'ForgeGradle', version: '3.0.+'
+        // classpath 'com.matthewprenger:CurseGradle:1.0-SNAPSHOT'
     }
 }
-apply plugin: 'net.minecraftforge.gradle.forge'
-//Only edit below this line, the above code adds and enables the necessary things for Forge to be setup.
 
-version = "3.6.0"
+apply plugin: 'net.minecraftforge.gradle'
+apply plugin: 'eclipse'
+apply plugin: 'maven'
+// apply plugin: 'com.matthewprenger.cursegradle'
+
+ext.configFile = file('build.properties')
+ext.config = parseConfig(configFile)
+
+version = "${config.version}-${config.build_number}"
 group = "technicianlp" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
-archivesBaseName = "reauth"
+archivesBaseName = config.mod_name
 
-sourceCompatibility = targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
-compileJava {
-    sourceCompatibility = targetCompatibility = '1.8'
-}
+sourceCompatibility = targetCompatibility = compileJava.sourceCompatibility = compileJava.targetCompatibility = '1.8'
 
 minecraft {
-    version = "1.12.2-14.23.0.2512"
-    runDir = "run"
+    mappings channel: 'snapshot', version: "${config.mc_mappings}"
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+    runs {
+        client {
+            properties 'forge.logging.markers': 'REGISTRIES,REGISTRYDUMP'
+            properties 'forge.logging.console.level': 'debug'
+            properties 'fml.earlyprogresswindow': 'false'
+            workingDirectory project.file('run')
+            mods {
+                reauth {
+                    source sourceSets.main
+                }
+            }
+        }
+        server {
+            properties 'forge.logging.markers': 'REGISTRIES,REGISTRYDUMP'
+            properties 'forge.logging.console.level': 'debug'
+            workingDirectory project.file('run')
+            mods {
+                reauth {
+                    source sourceSets.main
+                }
+            }
+        }
+        data {
+            properties 'forge.logging.markers': 'REGISTRIES,REGISTRYDUMP'
+            properties 'forge.logging.console.level': 'debug'
+            properties 'fml.earlyprogresswindow': 'false'
+            workingDirectory project.file('run')
+            mods {
+                reauth {
+                    source sourceSets.main
+                }
+            }
+            args '--mod', 'reauth', '--all', '--output', file('src/generated/resources/')
+        }
+    }
+    // replace 'GRADLE:BUILD', config.build_number
+    // replace 'GRADLE:VERSION', config.version
 
-    mappings = "snapshot_20171015"
+    // replaceIn 'LibMisc.java' //I may have missed another file, though I can only find it in here.
+}
+
+sourceSets.main.resources {
+    srcDir 'src/generated/resources'
+}
+
+repositories {
+    mavenCentral()
+    maven {
+        url = "https://maven.blamejared.com"
+    }
+    maven {
+        url = "https://dvs1.progwml6.com/files/maven"
+    }
+    maven {
+        url = "https://minecraft.curseforge.com/api/maven/"
+    }
+    maven {
+        name = "curios"
+        url = "https://maven.theillusivec4.top/"
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${config.mc_version}-${config.forge_version}"
+}
+
+if (System.getenv().BUILD_NUMBER != null) { 
+    //adds the build number to the end of the version string if on a build server
+    version += ".${System.getenv().BUILD_NUMBER}"
 }
 
 jar {
     manifest {
-        attributes("Maven-Artifact": "${project.group}:${project.archivesBaseName}:${project.version}")
+        attributes(["Specification-Title": "reauth",
+                    "Specification-Vendor": "reauth",
+                    "Specification-Version": "1",
+                    "Implementation-Title": project.name,
+                    "Implementation-Version": "${version}",
+                    "Implementation-Vendor": "reauth",
+                    "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")],)
     }
+    
+    //rename the default output, for some better... sanity with scipts
+    archiveName = "${baseName} ${version}.${extension}"
+
+    exclude "**/*.bat"
+    exclude "**/*.psd"
+    exclude "**/*.exe"
 }
 
-processResources {
-    // this will ensure that this task is redone when the versions change.
-    inputs.property "version", project.version
-    inputs.property "mcversion", project.minecraft.version
-
-    // replace stuff in mcmod.info, nothing else
-    from(sourceSets.main.resources.srcDirs) {
-        include 'mcmod.info'
-
-        // replace version and mcversion
-        expand 'version': project.version, 'mcversion': project.minecraft.version
-    }
-
-    // copy everything else except the mcmod.info
-    from(sourceSets.main.resources.srcDirs) {
-        exclude 'mcmod.info'
-    }
-}
-
-
-import com.google.common.base.Charsets
-import com.google.common.io.Files
-import groovy.swing.SwingBuilder
-
-import java.awt.*
-import java.util.function.Consumer
-
-// this task replace lines that end with "// @Replace(<code>)" with <code> when building
-// this allows for different behaviour in dev environment (ie disabled signature checks)
-task replaceSourceMain(type: DefaultTask, dependsOn: sourceMainJava) {
-    doLast {
-        project.fileTree(sourceMainJava.output).matching {
-            include '**/*.java'
-        }.forEach(new Consumer<File>() {
-            @Override
-            void accept(File file) {
-                String text = Files.toString(file, Charsets.UTF_8)
-                text = text.replaceAll('.*// ?@[Rr]eplace\\((.*)\\)', '$1')
-                Files.write(text, file, Charsets.UTF_8)
-            }
-        })
-    }
-}
-compileJava.dependsOn(replaceSourceMain)
-
-task signJar(type: Exec, dependsOn: reobfJar) {
-    onlyIf {
-        project.hasProperty('keyStore')
-    }
-    ext {
-        storePass = null
-        keyPass = null
-    }
-    executable = "jarsigner"
-    args(["-signedJar", jar.archivePath, jar.archivePath, project.keyStoreAlias,
-          "-tsa", project.tsa,
-          "-keystore", project.keyStore])
+/**
+ * Increments the buildnumber in your config file, and saves it
+ * Note: The doFirst is important, without it the build number
+ * will be incremented every time tasks are configured, i.e every
+ * time gradle is run on this project. 
+ */
+task incrementBuildNumber {
     doFirst {
-        if (storePass != null && storePass?.trim())
-            args(["-storepass", storePass])
-        if (keyPass != null && keyPass?.trim())
-            args(["-keypass", keyPass])
+        config.build_number = (config.build_number.toString().toInteger()) + 1
+        configFile.withWriter {
+            config.toProperties().store(it, "")
+        }
+
+        file('web/versions.ini').append("\n${project.version}=${config.mc_version}")
+        file("${config.dir_repo}/version/${config.mc_version}.txt").write("${project.version}")
     }
 }
-build.dependsOn signJar
 
-gradle.taskGraph.whenReady { taskGraph ->
-    if (taskGraph.hasTask(':signJar')) {
-        if (System.console() == null) {
-            new SwingBuilder().edt {
-                dialog(modal: true, title: 'KeyStore Passwords', alwaysOnTop: true, resizable: false,
-                        locationRelativeTo: null, show: true, size: [300, 150]) {
-                    panel(layout: new BorderLayout(5, 5)) {
-                        def store
-                        def key
-                        vbox(constraints: BorderLayout.CENTER) {
-                            label(text: "Keystore:",)
-                            store = passwordField()
-                            label(text: "Key:")
-                            key = passwordField()
-                        }
-                        button(defaultButton: true, text: 'OK', constraints: BorderLayout.SOUTH, actionPerformed: {
-                            signJar.storePass = new String(store.password)
-                            signJar.keyPass = new String(key.password)
-                            dispose()
-                        })
-                    }
-                }
-            }
-        } else {
-            signJar.storePass = new String(System.console().readPassword("\nKeyStore Password: "))
-            signJar.keyPass = new String(System.console().readPassword("\nKey Password: "))
+
+import java.util.regex.Pattern
+
+task sortArtifacts(type: Copy) {
+    from jar.destinationDir
+    into config.dir_output
+    //Put each jar with a classifier in a subfolder with the classifier as its name
+    eachFile {
+        //This matcher is used to get the classifier of the jar
+        def matcher = Pattern.compile("$config.mod_name $version-(?<classifier>\\w+).jar").matcher(it.name)
+        //Only change the destination for full matches, i.e jars with classifiers
+        if (matcher.matches()) {
+            def classifier = matcher.group('classifier')
+            /* Set the relative path to change the destination, since 
+             * Gradle doesn't seem to like the absolute path being set*/
+            it.relativePath = it.relativePath.parent.append(false, classifier, it.name)
         }
     }
 }
+
+def parseConfig(File config) {
+	if(config.exists()){
+		config.withReader {
+			def prop = new Properties()
+			prop.load(it)
+			return (new ConfigSlurper().parse(prop))
+		}
+	} else {
+		return null
+	}
+}
+
+
+uploadArchives {
+    repositories {
+        mavenDeployer {
+            repository(url: "file://" + (System.getenv("local_maven") != null ? System.getenv("local_maven") : System.getenv("bamboo_local_maven")))
+        }
+    }
+}
+// tasks.uploadArchives.dependsOn reobfJar
+
+defaultTasks 'clean', 'runData', 'build', 'sortArtifacts', 'incrementBuildNumber', 'upload'

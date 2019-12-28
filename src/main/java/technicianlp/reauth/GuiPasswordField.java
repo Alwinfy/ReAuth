@@ -1,20 +1,30 @@
 package technicianlp.reauth;
 
 import net.minecraft.client.gui.FontRenderer;
-import net.minecraft.client.gui.GuiScreen;
-import net.minecraft.client.gui.GuiTextField;
-import net.minecraft.util.ChatAllowedCharacters;
-import net.minecraftforge.fml.relauncher.Side;
-import net.minecraftforge.fml.relauncher.SideOnly;
-import org.lwjgl.input.Keyboard;
+import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.util.SharedConstants;
+import net.minecraftforge.api.distmarker.Dist;
+import net.minecraftforge.api.distmarker.OnlyIn;
+import org.lwjgl.glfw.GLFW;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper; // bc selectionEnd isn't exposed
 
 import java.util.Arrays;
+import java.lang.reflect.Field;
 
-@SideOnly(Side.CLIENT)
-final class GuiPasswordField extends GuiTextField {
+@OnlyIn(Dist.CLIENT)
+final class GuiPasswordField extends TextFieldWidget {
+    private static Field selectionEndField = ObfuscationReflectionHelper.findField(TextFieldWidget.class, "field_146223_s");
+    int getSelEnd() {
+        try {
+            return selectionEndField.getInt(this);
+        } catch(ReflectiveOperationException e) {
+            return getCursorPosition();
+        }
+    }
 
-    GuiPasswordField(FontRenderer renderer, int posx, int posy, int x, int y) {
-        super(1, renderer, posx, posy, x, y);
+    GuiPasswordField(FontRenderer renderer, int posx, int posy, int x, int y, String text) {
+        super(renderer, posx, posy, x, y, text);
         this.setMaxStringLength(512);
     }
 
@@ -26,32 +36,16 @@ final class GuiPasswordField extends GuiTextField {
         return pw;
     }
 
-    public final boolean textboxKeyTyped(char typedChar, int keyCode) {
-        if (!this.isFocused() || GuiScreen.isKeyComboCtrlC(keyCode) || GuiScreen.isKeyComboCtrlX(keyCode))
+    public boolean keyPressed(int key, int scan, int mod) {
+        if (!this.isFocused() || Screen.isCopy(key) || Screen.isCut(key))
             return false; // Prevent Cut/Copy
-        if (GuiScreen.isKeyComboCtrlA(keyCode) || GuiScreen.isKeyComboCtrlV(keyCode))
-            return super.textboxKeyTyped(typedChar, keyCode); // combos handled by super
-
-        switch (keyCode) {
-            case Keyboard.KEY_BACK: // backspace
-            case Keyboard.KEY_DELETE:
-            case Keyboard.KEY_HOME: // jump keys?
-            case Keyboard.KEY_END:
-            case Keyboard.KEY_LEFT: // arrowkey
-            case Keyboard.KEY_RIGHT:
-                return super.textboxKeyTyped(typedChar, keyCode); // special keys handled by super
-            default:
-                if (isAllowedCharacter(typedChar)) {
-                    this.writeText(Character.toString(typedChar));
-                    return true;
-                }
-                return false;
-        }
+        return super.keyPressed(key, scan, mod); // combos handled by super
     }
 
     public final void writeText(String rawInput) {
-        int selStart = this.getCursorPosition() < this.getSelectionEnd() ? this.getCursorPosition() : this.getSelectionEnd();
-        int selEnd = this.getCursorPosition() < this.getSelectionEnd() ? this.getSelectionEnd() : this.getCursorPosition();
+        int selectionEnd = getSelEnd();
+        int selStart = this.getCursorPosition() < selectionEnd ? this.getCursorPosition() : selectionEnd;
+        int selEnd = this.getCursorPosition() < selectionEnd ? selectionEnd : this.getCursorPosition();
 
         char[] input = filterAllowedCharacters(rawInput).toCharArray();
         char[] newPW = new char[selStart + password.length - selEnd + input.length];
@@ -68,14 +62,14 @@ final class GuiPasswordField extends GuiTextField {
 
         setPassword(newPW);
         Arrays.fill(newPW, 'f');
-        this.moveCursorBy(selStart - this.getSelectionEnd() + l);
+        this.moveCursorBy(selStart - selectionEnd + l);
     }
 
     @Override
     public final void deleteFromCursor(int num) {
         if (password.length == 0)
             return;
-        if (this.getSelectionEnd() != this.getCursorPosition()) {
+        if (getSelEnd() != this.getCursorPosition()) {
             this.writeText("");
         } else {
             boolean direction = num < 0;
@@ -121,7 +115,7 @@ final class GuiPasswordField extends GuiTextField {
      * Allow SectionSign to be input into the field
      */
     private boolean isAllowedCharacter(int character) {
-        return character == 0xa7 || ChatAllowedCharacters.isAllowedCharacter((char) character);
+        return character == 0xa7 || SharedConstants.isAllowedCharacter((char) character);
     }
 
     /**

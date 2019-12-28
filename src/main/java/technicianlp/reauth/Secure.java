@@ -13,8 +13,7 @@ import com.mojang.authlib.yggdrasil.YggdrasilUserAuthentication;
 import com.mojang.util.UUIDTypeAdapter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.util.Session;
-import net.minecraftforge.common.config.Configuration;
-import net.minecraftforge.fml.relauncher.ReflectionHelper;
+import net.minecraftforge.fml.common.ObfuscationReflectionHelper;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -45,9 +44,9 @@ final class Secure {
      */
     static void init() {
         String base = "technicianlp.reauth.";
-        List<String> classes = ImmutableList.of(base + "ConfigGUI", base + "GuiFactory", base + "GuiHandler",
+        List<String> classes = ImmutableList.of(base + "GuiHandler",
                 base + "GuiLogin", base + "GuiPasswordField", base + "Main",
-                base + "Secure", base + "VersionChecker", base + "CachedProperty");
+                base + "Secure", base + "CachedProperty");
         try {
             Set<ClassInfo> set = ClassPath.from(Secure.class.getClassLoader()).getTopLevelClassesRecursive("technicianlp.reauth");
             for (ClassInfo info : set)
@@ -58,12 +57,11 @@ final class Secure {
             throw new RuntimeException("Classnames could not be fetched!", e);
         }
 
-        VersionChecker.update();
     }
 
     static {
         /* initialize the authservices */
-        yas = new YggdrasilAuthenticationService(Minecraft.getMinecraft().getProxy(), UUID.randomUUID().toString());
+        yas = new YggdrasilAuthenticationService(Minecraft.getInstance().getProxy(), UUID.randomUUID().toString());
         yua = (YggdrasilUserAuthentication) yas.createUserAuthentication(Agent.MINECRAFT);
         ymss = (YggdrasilMinecraftSessionService) yas.createMinecraftSessionService();
     }
@@ -72,8 +70,6 @@ final class Secure {
      * Logs you in; replaces the Session in your client; and saves to config
      */
     static void login(String user, char[] pw, boolean savePassToConfig) throws AuthenticationException, IllegalArgumentException, IllegalAccessException {
-        if (!VersionChecker.isVersionAllowed())
-            throw new AuthenticationException("ReAuth has a critical update!");
 
         /* set credentials */
         Secure.yua.setUsername(user);
@@ -94,16 +90,7 @@ final class Secure {
         /* logout to discard the credentials in the object */
         Secure.yua.logOut();
 
-        /* save username to config */
         Secure.username = user;
-        Main.config.get(Configuration.CATEGORY_GENERAL, "username", "", "Your Username").set(Secure.username);
-        /* save password to config if desired */
-        if (savePassToConfig) {
-            Secure.password = pw;
-            Main.config.get(Configuration.CATEGORY_GENERAL, "password", "",
-                    "Your Password in plaintext if chosen to save to disk").set(new String(Secure.password));
-        }
-        Main.config.save();
     }
 
     static void offlineMode(String username) throws IllegalArgumentException, IllegalAccessException {
@@ -141,14 +128,14 @@ final class Secure {
          * as the Session field in Minecraft.class is final we have to access it
          * via reflection
          */
-        private static Field sessionField = ReflectionHelper.findField(Minecraft.class, "session", "S", "field_71449_j");
+        private static Field sessionField = ObfuscationReflectionHelper.findField(Minecraft.class, "field_71449_j");
 
         static Session get() {
-            return Minecraft.getMinecraft().getSession();
+            return Minecraft.getInstance().getSession();
         }
 
         static void set(Session s) throws IllegalArgumentException, IllegalAccessException {
-            Sessionutil.sessionField.set(Minecraft.getMinecraft(), s);
+            Sessionutil.sessionField.set(Minecraft.getInstance(), s);
             GuiHandler.invalidateStatus();
         }
     }
