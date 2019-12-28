@@ -12,8 +12,8 @@ import java.awt.Color;
 final class GuiLogin extends Screen {
 
     private TextFieldWidget username;
-    //private TextFieldWidget pw;
-    private GuiPasswordField pw;
+    private TextFieldWidget pw;
+    //private GuiPasswordField pw;
     private Button login;
     private Button cancel;
     private Button offline;
@@ -61,7 +61,7 @@ final class GuiLogin extends Screen {
         username.setVisible(true);
         username.setCanLoseFocus(true);
 
-        pw = new GuiPasswordField(font, width / 2 - 155, basey + 60, 2 * 155, 20, "");
+        pw = new TextFieldWidget(font, width / 2 - 155, basey + 60, 2 * 155, 20, "");
         pw.setEnabled(true);
         pw.setVisible(true);
         pw.setCanLoseFocus(true);
@@ -131,7 +131,7 @@ final class GuiLogin extends Screen {
      */
     private boolean login() {
         try {
-            Secure.login(username.getText(), pw.getPW(), false);
+            Secure.login(username.getText(), pw.getText().toCharArray(), false);
             message = (char) 167 + "aLogin successful!";
             return true;
         } catch (AuthenticationException e) {

@@ -50,7 +50,7 @@ public final class Main {
 
         Main.OfflineModeEnabled = true;
 
-        GuiHandler.enabled = false;
+        GuiHandler.enabled = true;
 
         GuiHandler.bold = false;
     }

@@ -48,7 +48,7 @@ public final class GuiHandler {
         }
     }
 
-    @SubscribeEvent
+    @SubscribeEvent(priority=net.minecraftforge.eventbus.api.EventPriority.HIGHEST)
     public static void draw(DrawScreenEvent.Post e) {
         if (enabled && e.getGui() instanceof MultiplayerScreen) {
             e.getGui().drawString(e.getGui().getMinecraft().fontRenderer, "Online:", 110, 10, 0xFFFFFFFF);
