@@ -28,7 +28,7 @@ public final class GuiHandler {
     static boolean bold = true;
 
     @SubscribeEvent
-    public static void open(InitGuiEvent.Post e) {
+    public static void open(InitGuiEvent e) {
         boolean run = false;
         if (e.getGui() instanceof MultiplayerScreen) {
             e.addWidget(new Button(5, 5, 100, 20, "Re-Login", GuiHandler::yeet));
@@ -44,7 +44,7 @@ public final class GuiHandler {
         } else if (e.getGui() instanceof MainMenuScreen) {
             run = true;
             // Support for Custom Main Menu (add button outside of viewport)
-            e.addWidget(new Button(-50, -50, 20, 20, "ReAuth", GuiHandler::yeet));
+            //e.addWidget(new Button(-50, -50, 20, 20, "ReAuth", GuiHandler::yeet));
         }
     }
 
